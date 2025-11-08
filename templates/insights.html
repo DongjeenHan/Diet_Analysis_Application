@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Nutritional Insights</title>
+  <link rel='stylesheet' href='{{ url_for("static", filename="insights.css") }}'>
+</head>
+<body>
+  <header>
+    <h1>Nutritional Insights</h1>
+  </header>
+
+  <main>
+    <section class='explore'>
+      <h2>Explore Nutritional Insights</h2>
+      <div class='card-grid'>
+        <div class='card'><h3>Bar Chart</h3><p>Average macronutrient content by diet type.</p></div>
+        <div class='card'><h3>Scatter Plot</h3><p>Nutrient relationships (e.g., protein vs carbs).</p></div>
+        <div class='card'><h3>Heatmap</h3><p>Nutrient correlations.</p></div>
+        <div class='card'><h3>Pie Chart</h3><p>Recipe distribution by diet type.</p></div>
+      </div>
+    </section>
+
+    <section class='filters'>
+      <h2>Filters and Data Interaction</h2>
+      <div class='filter-row'>
+        <label for='dietType'>Search by Diet Type</label>
+        <select id='dietType'>
+          <option>All Diet Types</option>
+          <option>Keto</option>
+          <option>Vegan</option>
+          <option>Low Carb</option>
+        </select>
+      </div>
+    </section>
+
+    <section class='api'>
+      <h2>API Data Interaction</h2>
+      <div class='button-row'>
+        <button class='blue'>Get Nutritional Insights</button>
+        <button class='green'>Get Recipes</button>
+        <button class='purple'>Get Clusters</button>
+      </div>
+    </section>
+
+    <section class='pagination'>
+      <p>Pagination</p>
+      <div class='pager'>
+        <button>Previous</button>
+        <button class='active'>1</button>
+        <button>2</button>
+        <button>Next</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

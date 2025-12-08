@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request 
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # for servers / no display
@@ -43,8 +43,10 @@ def filter_by_diet(df, diet_name: str):
 @app.route("/", methods=["GET", "POST"])
 def index():
     action = request.form.get("action")
-    selected_diet = request.form.get("dietType", "")  # from dropdown
-    page = int(request.form.get("page", "1"))         # for recipes pagination
+    selected_diet = request.form.get("dietType", "")           # from dropdown
+    keyword = (request.form.get("keyword") or "").strip()      # NEW: keyword search
+    page = int(request.form.get("page", "1"))                  # for recipes pagination
+
     charts = {}
     message = None
     total_pages = 1
@@ -101,30 +103,48 @@ def index():
 
     elif action == "recipes":
         # ----- show real recipe names from dataset -----
-        # paginate results to 10 per page
-        per_page = 10
+        # base recipes df (already filtered by diet)
         rec_df = df_filtered[["Recipe_name", "Cuisine_type", "Diet_type"]].copy()
-        rec_df = rec_df.sort_values("Recipe_name")
+
+        # ---------- NEW: keyword search ----------
+        # search in Recipe_name OR Cuisine_type (case-insensitive)
+        if keyword:
+            mask = (
+                rec_df["Recipe_name"].str.contains(keyword, case=False, na=False) |
+                rec_df["Cuisine_type"].str.contains(keyword, case=False, na=False)
+            )
+            rec_df = rec_df[mask]
+
+        # ---------- Pagination ----------
+        per_page = 10  # 10 recipes per page
         total = len(rec_df)
-        total_pages = max(1, math.ceil(total / per_page))
 
-        # clamp page
-        if page < 1:
+        if total == 0:
+            # no matches found -> single page, friendly message
+            total_pages = 1
             page = 1
-        if page > total_pages:
-            page = total_pages
+            message = [ "No recipes found for your search." ]
+        else:
+            rec_df = rec_df.sort_values("Recipe_name")
+            total_pages = max(1, math.ceil(total / per_page))
 
-        start = (page - 1) * per_page
-        end = start + per_page
-        sliced = rec_df.iloc[start:end]
+            # clamp page
+            if page < 1:
+                page = 1
+            if page > total_pages:
+                page = total_pages
 
-        # build message list
-        message = []
-        for _, row in sliced.iterrows():
-            recipe_name = row["Recipe_name"]
-            cuisine = row["Cuisine_type"]
-            diet = row["Diet_type"]
-            message.append(f"{recipe_name} ({diet}, {cuisine})")
+            start = (page - 1) * per_page
+            end = start + per_page
+            sliced = rec_df.iloc[start:end]
+
+            # build message list (kept same format as before)
+            message = []
+            for _, row in sliced.iterrows():
+                recipe_name = row["Recipe_name"]
+                cuisine = row["Cuisine_type"]
+                diet = row["Diet_type"]
+                message.append(f"{recipe_name} ({diet}, {cuisine})")
 
     elif action == "clusters":
         # ----- simple "cluster"-like summary from real data -----
@@ -154,9 +174,10 @@ def index():
         charts=charts,
         message=message,
         selected_diet=selected_diet,
-        diet_options=sorted(raw_df["Diet_type"].dropna().unique().tolist()),
+        diet_options=diet_options,
         current_page=page,
-        total_pages=total_pages  # already >= 1 in our code
+        total_pages=total_pages,   # already >= 1 in our code
+        keyword=keyword            # NEW: so the input can keep its value
     )
 
 if __name__ == "__main__":

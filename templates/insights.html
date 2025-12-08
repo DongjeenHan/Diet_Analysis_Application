@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nutritional Insights</title>
-  <link rel='stylesheet' href='{{ url_for("static", filename="insights.css") }}'>
+  <link rel="stylesheet" href="{{ url_for('static', filename='insights.css') }}" />
 </head>
 <body>
   <header>
@@ -12,102 +12,179 @@
   </header>
 
   <main>
-    <section class='explore'>
-      <h2>Explore Nutritional Insights</h2>
-      <div class='card-grid'>
-        <div class='card'><h3>Bar Chart</h3><p>Average macronutrient content by diet type.</p></div>
-        <div class='card'><h3>Scatter Plot</h3><p>Nutrient relationships (e.g., protein vs carbs).</p></div>
-        <div class='card'><h3>Heatmap</h3><p>Nutrient correlations.</p></div>
-        <div class='card'><h3>Pie Chart</h3><p>Recipe distribution by diet type.</p></div>
+    <!-- Explore section -->
+    <section class="explore" aria-labelledby="explore-heading">
+      <h2 id="explore-heading">Explore Nutritional Insights</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>Bar Chart</h3>
+          <p>Average macronutrient content by diet type.</p>
+        </article>
+
+        <article class="card">
+          <h3>Scatter Plot</h3>
+          <p>Nutrient relationships (e.g., protein vs carbs).</p>
+        </article>
+
+        <article class="card">
+          <h3>Heatmap</h3>
+          <p>Nutrient correlations.</p>
+        </article>
+
+        <article class="card">
+          <h3>Pie Chart</h3>
+          <p>Recipe distribution by diet type.</p>
+        </article>
       </div>
     </section>
 
-    <!-- main form -->
-    <section class='api'>
-      <h2>API Data Interaction</h2>
+    <!-- API form -->
+    <section class="api" aria-labelledby="api-heading">
+      <h2 id="api-heading">API Data Interaction</h2>
+
       <form method="POST" id="insights-form">
-        <div class='filters-inline'>
-          <label for='dietType'>Search by Diet Type</label>
-          <select id='dietType' name='dietType'>
-            <option value="" {% if not selected_diet %}selected{% endif %}>All Diet Types</option>
+        <div class="filters-inline">
+          <label for="dietType">Search by Diet Type</label>
+          <select id="dietType" name="dietType">
+            <option value="" {% if not selected_diet %}selected{% endif %}>
+              All Diet Types
+            </option>
             {% for d in diet_options %}
-              <option value="{{ d }}" {% if selected_diet == d %}selected{% endif %}>{{ d }}</option>
+              <option value="{{ d }}" {% if selected_diet == d %}selected{% endif %}>
+                {{ d }}
+              </option>
             {% endfor %}
           </select>
         </div>
 
-        <div class='button-row'>
-          <button class='blue' type='submit' name='action' value='insights'>Get Nutritional Insights</button>
-          <button class='green' type='submit' name='action' value='recipes'>Get Recipes</button>
-          <button class='purple' type='submit' name='action' value='clusters'>Get Clusters</button>
+        <div class="filters-inline">
+        <label for="keyword">Search by Keyword</label>
+        <input
+          type="text"
+          id="keyword"
+          name="keyword"
+          placeholder="e.g. chicken, salad, american"
+          value="{{ keyword or '' }}"
+        />
         </div>
 
-        <!-- current page -->
-        <input type="hidden" name="page" id="page-field" value="{{ current_page }}">
+        <div class="button-row">
+          <button class="blue" type="submit" name="action" value="insights">
+            Get Nutritional Insights
+          </button>
+          <button class="green" type="submit" name="action" value="recipes">
+            Get Recipes
+          </button>
+          <button class="purple" type="submit" name="action" value="clusters">
+            Get Clusters
+          </button>
+        </div>
+
+        <!-- current page for pagination -->
+        <input type="hidden" name="page" id="page-field" value="{{ current_page }}" />
       </form>
     </section>
 
-    <!-- pagination -->
-    <section class='pagination'>
+    <!-- Pagination -->
+    <section class="pagination" aria-label="Pagination controls">
       <p>Pagination</p>
-      <!-- pass max page via data- attr -->
-      <div class='pager' id="pager" data-max-page="{{ total_pages }}">
-        <button type="button" class="pager-btn" data-page="prev">Previous</button>
+
+      <div
+        class="pager"
+        id="pager"
+        data-max-page="{{ total_pages }}"
+      >
+        <button
+          type="button"
+          class="pager-btn"
+          data-page="prev"
+        >
+          Previous
+        </button>
 
         {% for p in range(1, total_pages + 1) %}
           <button
             type="button"
             class="pager-btn {% if p == current_page %}active{% endif %}"
-            data-page="{{ p }}">{{ p }}</button>
+            data-page="{{ p }}"
+          >
+            {{ p }}
+          </button>
         {% endfor %}
 
-        <button type="button" class="pager-btn" data-page="next">Next</button>
+        <button
+          type="button"
+          class="pager-btn"
+          data-page="next"
+        >
+          Next
+        </button>
       </div>
     </section>
 
+    <!-- Charts -->
     {% if charts %}
-    <section class="results">
-      <h2>Generated Charts</h2>
-      <div class="chart-grid">
-        {% if charts.bar %}
-          <img src="data:image/png;base64,{{ charts.bar }}" alt="Bar chart">
-        {% endif %}
-        {% if charts.scatter %}
-          <img src="data:image/png;base64,{{ charts.scatter }}" alt="Scatter chart">
-        {% endif %}
-        {% if charts.heatmap %}
-          <img src="data:image/png;base64,{{ charts.heatmap }}" alt="Heatmap">
-        {% endif %}
-        {% if charts.pie %}
-          <img src="data:image/png;base64,{{ charts.pie }}" alt="Pie chart">
-        {% endif %}
-      </div>
-    </section>
+      <section class="results" aria-labelledby="charts-heading">
+        <h2 id="charts-heading">Generated Charts</h2>
+        <div class="chart-grid">
+          {% if charts.bar %}
+            <img src="data:image/png;base64,{{ charts.bar }}" alt="Bar chart" />
+          {% endif %}
+          {% if charts.scatter %}
+            <img src="data:image/png;base64,{{ charts.scatter }}" alt="Scatter chart" />
+          {% endif %}
+          {% if charts.heatmap %}
+            <img src="data:image/png;base64,{{ charts.heatmap }}" alt="Heatmap" />
+          {% endif %}
+          {% if charts.pie %}
+            <img src="data:image/png;base64,{{ charts.pie }}" alt="Pie chart" />
+          {% endif %}
+        </div>
+      </section>
     {% endif %}
 
     {% if message %}
-    <section class="results">
-      <h2>Results</h2>
-      <ul>
-        {% for m in message %}
-          <li>{{ m }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
+<section class="results">
+  <h2>Recipes</h2>
+  <ul class="recipe-list">
+    {% for m in message %}
+      <li>{{ m }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+
+{% if recipes %}
+<section class="results">
+  <h2>Recipes</h2>
+  <ul class="recipe-list">
+    {% for r in recipes %}
+      <li>
+        <h3>{{ r.recipe_name }}</h3>
+        <p>{{ r.diet_type|title }} • {{ r.cuisine_type|title }}</p>
+        <p>
+          Protein: {{ '%.1f'|format(r.protein) }} g |
+          Carbs: {{ '%.1f'|format(r.carbs) }} g |
+          Fat: {{ '%.1f'|format(r.fat) }} g
+        </p>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
   </main>
 
   <script>
-    // submit form when pagination button is clicked
     const pager = document.getElementById("pager");
     const maxPage = parseInt(pager.dataset.maxPage, 10);
     const form = document.getElementById("insights-form");
     const pageField = document.getElementById("page-field");
 
-    document.querySelectorAll(".pager-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+    document.querySelectorAll(".pager-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
         let current = parseInt(pageField.value, 10) || 1;
-        let target = this.dataset.page;
+        let target = btn.dataset.page;
 
         if (target === "prev") {
           target = current - 1;

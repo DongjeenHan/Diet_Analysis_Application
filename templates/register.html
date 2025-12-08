@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Register - Nutritional Insights</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+</head>
+<body>
+
+  <div class="auth-container">
+    <h1>Register</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-messages">
+          {% for category, msg in messages %}
+            <li class="{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+      <div class="auth-field">
+        <label for="name">Name</label>
+        <input type="text" name="name" id="name" required />
+      </div>
+
+      <div class="auth-field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" required />
+      </div>
+
+      <div class="auth-field">
+        <label for="password">Password</label>
+        <input type="password" name="password" id="password" required />
+      </div>
+
+      <div class="auth-field">
+        <label for="confirm">Confirm Password</label>
+        <input type="password" name="confirm" id="confirm" required />
+      </div>
+
+      <button class="auth-btn" type="submit">Register</button>
+    </form>
+
+    <div class="auth-footer">
+      Already have an account?
+      <a href="{{ url_for('login') }}">Login</a>
+    </div>
+  </div>
+
+</body>
+</html>

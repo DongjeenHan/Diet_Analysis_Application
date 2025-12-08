@@ -9,6 +9,12 @@
 <body>
   <header>
     <h1>Nutritional Insights</h1>
+    {% if user_name %}
+      <div class="user-info">
+    <span>Welcome, {{ user_name }}</span>
+    <a href="{{ url_for('logout') }}">Logout</a>
+  </div>
+  {% endif %}
   </header>
 
   <main>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Nutritional Insights</title>
+  <!-- Make sure this file exists: static/auth.css -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+</head>
+<body>
+
+  <div class="auth-container">
+    <h1>Login</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-messages">
+          {% for category, msg in messages %}
+            <li class="{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Email / password login -->
+    <form method="POST">
+      <div class="auth-field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" required />
+      </div>
+
+      <div class="auth-field">
+        <label for="password">Password</label>
+        <input type="password" name="password" id="password" required />
+      </div>
+
+      <button class="auth-btn" type="submit">Login</button>
+    </form>
+
+    <!-- Divider -->
+    <div class="auth-divider">
+      <span>or</span>
+    </div>
+
+    <!-- GitHub OAuth button -->
+    <form action="{{ url_for('login_github') }}" method="GET">
+      <button class="oauth-btn oauth-github" type="submit">
+        Continue with GitHub
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account?
+      <a href="{{ url_for('register') }}">Register</a>
+    </div>
+  </div>
+
+</body>
+</html>

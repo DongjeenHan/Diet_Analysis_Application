@@ -1,0 +1,184 @@
+/* ------------------------------
+   Base
+------------------------------ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8f9fb;
+  color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* ------------------------------
+   Auth Card
+------------------------------ */
+.auth-container {
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  padding: 35px 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.12);
+}
+
+.auth-container h1 {
+  margin: 0 0 25px;
+  text-align: center;
+  color: #1d3557;
+  font-size: 26px;
+}
+
+/* ------------------------------
+   Flash Messages
+------------------------------ */
+.flash-messages {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 20px;
+}
+
+.flash-messages li {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.flash-messages .error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.flash-messages .success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* ------------------------------
+   Form Fields
+------------------------------ */
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.auth-field label {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.auth-field input {
+  height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.auth-field input:focus {
+  border-color: #5e60ce;
+  box-shadow: 0 0 0 3px rgba(94, 96, 206, 0.2);
+}
+
+/* ------------------------------
+   Buttons
+------------------------------ */
+.auth-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: linear-gradient(90deg, #4c6ef5, #5e60ce);
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+/* ------------------------------
+   Footer Links
+------------------------------ */
+.auth-footer {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-footer a {
+  color: #5e60ce;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.auth-divider {
+  text-align: center;
+  margin: 18px 0 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.auth-divider span {
+  position: relative;
+}
+
+.auth-divider span::before,
+.auth-divider span::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 60px;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.auth-divider span::before { right: 110%; }
+.auth-divider span::after  { left: 110%; }
+
+.oauth-btn {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  padding: 10px 12px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.oauth-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+.oauth-github {
+  background: #111827;
+}

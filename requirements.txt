@@ -1,10 +1,8 @@
 flask
 flask_sqlalchemy
 pandas
-numpy
 matplotlib
 seaborn
-requests
 werkzeug
 Authlib
 python-dotenv

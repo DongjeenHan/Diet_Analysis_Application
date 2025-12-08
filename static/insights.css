@@ -50,6 +50,16 @@ h2 {
   margin-bottom: 40px;
 }
 
+.pager-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 15px;
+  color: #9ca3af;
+}
+
+
 /* ------------------------------
    Card grid
 ------------------------------ */

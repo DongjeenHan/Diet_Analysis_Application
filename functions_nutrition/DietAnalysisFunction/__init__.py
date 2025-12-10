@@ -1,66 +1,148 @@
 import os
 import io
 import json
-import pandas as pd
+import csv
 import azure.functions as func
-from azure.storage.blob import BlobServiceClient
 
-DEFAULT_CONN = (
-    "DefaultEndpointsProtocol=http;"
-    "AccountName=devstoreaccount1;"
-    "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
-    "K1SZFPTOtr/KBHBeksoGMGw==;"
-    "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
-    "QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;"
-    "TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"
-)
-
+# Optional local “simulated NoSQL” file (for demo)
 OUTPUT_PATH = os.environ.get("SIMULATED_NOSQL_PATH", "simulated_nosql/results.json")
-CONTAINER_NAME = os.environ.get("DATASET_CONTAINER", "datasets")
-BLOB_NAME = os.environ.get("DATASET_BLOB", "All_Diets.csv")
 
 
-def _get_blob_bytes(container: str, blob: str, conn_str: str) -> bytes:
-    blob_service_client = BlobServiceClient.from_connection_string(conn_str)
-    container_client = blob_service_client.get_container_client(container)
-    blob_client = container_client.get_blob_client(blob)
-    return blob_client.download_blob().readall()
-
-
-def _process_df(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.rename(
-        columns={
-            "Protein (g)": "Protein(g)",
-            "Carbs (g)": "Carbs(g)",
-            "Fat (g)": "Fat(g)",
-        }
-    )
-    for c in ["Protein(g)", "Carbs(g)", "Fat(g)"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df.fillna(df.mean(numeric_only=True), inplace=True)
-    avg_macros = (
-        df.groupby("Diet_type")[["Protein(g)", "Carbs(g)", "Fat(g)"]]
-        .mean()
-        .reset_index()
-        .sort_values("Diet_type")
-    )
-    return avg_macros
-
-
-def main(inputBlob: func.InputStream):
-    conn = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", DEFAULT_CONN)
-
+def _parse_float(s: str) -> float:
+    """Best-effort float parse; returns 0.0 on bad/missing values."""
     try:
-        raw = inputBlob.read()
-        df = pd.read_csv(io.BytesIO(raw))
+        if s is None:
+            return 0.0
+        s = str(s).strip()
+        if not s:
+            return 0.0
+        return float(s)
     except Exception:
-        csv_bytes = _get_blob_bytes(CONTAINER_NAME, BLOB_NAME, conn)
-        df = pd.read_csv(io.BytesIO(csv_bytes))
+        return 0.0
 
-    avg_macros = _process_df(df)
 
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(avg_macros.to_dict(orient="records"), f, indent=2)
+def _clean_and_summarize(rows):
+    """
+    rows: list of dicts (from csv.DictReader)
 
-    print(f"saved results to {OUTPUT_PATH}")
+    - Normalizes macro column names
+    - Converts macros to float
+    - Computes:
+        * avg_macros_by_diet
+        * recipe_counts_by_diet
+    - Returns (cleaned_rows, summaries_dict)
+    """
+    cleaned_rows = []
+
+    # accumulators: diet_type -> sums & count
+    sums = {}
+    counts = {}
+
+    for row in rows:
+        diet_type = row.get("Diet_type") or row.get("Diet Type") or "Unknown"
+
+        # handle different header spellings
+        protein_raw = row.get("Protein(g)") or row.get("Protein (g)")
+        carbs_raw   = row.get("Carbs(g)")   or row.get("Carbs (g)")
+        fat_raw     = row.get("Fat(g)")     or row.get("Fat (g)")
+
+        protein = _parse_float(protein_raw)
+        carbs   = _parse_float(carbs_raw)
+        fat     = _parse_float(fat_raw)
+
+        # build a new normalized row for the cleaned CSV
+        cleaned_row = dict(row)  # copy all original columns
+        cleaned_row["Diet_type"] = diet_type
+        cleaned_row["Protein(g)"] = protein
+        cleaned_row["Carbs(g)"] = carbs
+        cleaned_row["Fat(g)"] = fat
+
+        cleaned_rows.append(cleaned_row)
+
+        # accumulators for averages
+        if diet_type not in sums:
+            sums[diet_type] = {"Protein(g)": 0.0, "Carbs(g)": 0.0, "Fat(g)": 0.0}
+            counts[diet_type] = 0
+
+        sums[diet_type]["Protein(g)"] += protein
+        sums[diet_type]["Carbs(g)"] += carbs
+        sums[diet_type]["Fat(g)"] += fat
+        counts[diet_type] += 1
+
+    # compute averages per diet
+    avg_macros = {}
+    for diet, total in sums.items():
+        count = max(1, counts[diet])
+        avg_macros[diet] = {
+            "Protein(g)": total["Protein(g)"] / count,
+            "Carbs(g)": total["Carbs(g)"] / count,
+            "Fat(g)": total["Fat(g)"] / count,
+        }
+
+    # recipe counts per diet
+    recipe_counts = {diet: counts[diet] for diet in counts}
+
+    summaries = {
+        "avg_macros_by_diet": avg_macros,
+        "recipe_counts_by_diet": recipe_counts,
+    }
+
+    return cleaned_rows, summaries
+
+
+def main(
+    inputBlob: func.InputStream,
+    cleanedBlob: func.Out[str],
+    summaryBlob: func.Out[str],
+):
+    """
+    Blob trigger: runs when All_Diets.csv changes in Blob Storage.
+
+    Steps:
+    - Read CSV rows
+    - Clean data (normalize macros, convert to floats)
+    - Compute averages & counts by Diet_type
+    - Write:
+        * Cleaned_All_Diets.csv  (via blob output binding)
+        * summaries.json         (via blob output binding)
+    - Also writes summaries to a local JSON file (for demo)
+    """
+    # 1) Read CSV from blob trigger stream
+    raw_bytes = inputBlob.read()
+    text = raw_bytes.decode("utf-8")
+
+    reader = csv.DictReader(io.StringIO(text))
+    rows = list(reader)
+
+    # 2) Clean and summarize
+    cleaned_rows, summaries = _clean_and_summarize(rows)
+
+    # 3) Optional: local simulated NoSQL file
+    try:
+        os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+        with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+            json.dump(summaries, f, indent=2)
+    except Exception:
+        # non-fatal in Azure
+        pass
+
+    # 4a) Write cleaned CSV to blob output
+    if cleaned_rows:
+        fieldnames = list(cleaned_rows[0].keys())
+    else:
+        fieldnames = ["Diet_type", "Protein(g)", "Carbs(g)", "Fat(g)"]
+
+    csv_buf = io.StringIO()
+    writer = csv.DictWriter(csv_buf, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(cleaned_rows)
+
+    cleanedBlob.set(csv_buf.getvalue())
+
+    # 4b) Write summaries.json to blob output
+    summaryBlob.set(json.dumps(summaries))
+
+    print(
+        "Saved cleaned CSV to 'datasets/Cleaned_All_Diets.csv' and "
+        "summaries to 'datasets/summaries.json'."
+    )

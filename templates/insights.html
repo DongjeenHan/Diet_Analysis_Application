@@ -167,8 +167,9 @@
     {% endif %}
   </main>
 
-  <script>
-    const pager = document.getElementById("pager");
+<script>
+  const pager = document.getElementById("pager");
+  if (pager) {
     const maxPage = parseInt(pager.dataset.maxPage, 10);
     const form = document.getElementById("insights-form");
     const pageField = document.getElementById("page-field");
@@ -201,6 +202,7 @@
         form.submit();
       });
     });
-  </script>
+  }
+</script>
 </body>
 </html>

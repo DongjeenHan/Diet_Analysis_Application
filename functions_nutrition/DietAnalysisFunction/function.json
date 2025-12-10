@@ -1,4 +1,5 @@
 {
+  "scriptFile": "__init__.py",
   "bindings": [
     {
       "name": "inputBlob",
@@ -6,7 +7,20 @@
       "direction": "in",
       "path": "datasets/All_Diets.csv",
       "connection": "AzureWebJobsStorage"
+    },
+    {
+      "name": "cleanedBlob",
+      "type": "blob",
+      "direction": "out",
+      "path": "datasets/Cleaned_All_Diets.csv",
+      "connection": "AzureWebJobsStorage"
+    },
+    {
+      "name": "summaryBlob",
+      "type": "blob",
+      "direction": "out",
+      "path": "datasets/summaries.json",
+      "connection": "AzureWebJobsStorage"
     }
-  ],
-  "scriptFile": "__init__.py"
+  ]
 }

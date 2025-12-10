@@ -23,6 +23,63 @@ from flask_sqlalchemy import SQLAlchemy
 from urllib.parse import urlparse, urljoin
 from flask import abort
 
+DATA_PATH = "All_Diets.csv"
+CLEAN_PATH = "Cleaned_All_Diets.csv"
+
+# In-memory cache so we don’t keep re-reading & re-cleaning
+CACHE = {
+    "source_mtime": None,           # last modified time of All_Diets.csv
+    "df": None,                     # cleaned dataframe
+    "avg_macros_by_diet": None,     # precomputed averages for charts
+    "recipe_counts_by_diet": None,  # precomputed counts for pie chart
+}
+
+
+def build_cache() -> None:
+    """
+    Read All_Diets.csv, clean it once, compute summary results and
+    store everything in the global CACHE dict. Also writes a cleaned
+    copy to Cleaned_All_Diets.csv for inspection / Azure upload.
+    """
+    df = pd.read_csv(DATA_PATH)
+
+    # clean numeric macro columns
+    for col in ["Protein(g)", "Carbs(g)", "Fat(g)"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    df[["Protein(g)", "Carbs(g)", "Fat(g)"]] = df[["Protein(g)", "Carbs(g)", "Fat(g)"]].fillna(0)
+
+    # save cleaned copy (this simulates what your blob-trigger function would write)
+    try:
+        df.to_csv(CLEAN_PATH, index=False)
+    except Exception:
+        # not fatal if write fails locally
+        pass
+
+    # ----- precomputed results (used for charts) -----
+    avg_macros = df.groupby("Diet_type")[["Protein(g)", "Carbs(g)", "Fat(g)"]].mean()
+    recipe_counts = df["Diet_type"].value_counts()
+
+    CACHE["df"] = df
+    CACHE["avg_macros_by_diet"] = avg_macros
+    CACHE["recipe_counts_by_diet"] = recipe_counts
+
+
+def ensure_cache() -> None:
+    """
+    Ensure CACHE is up to date.
+    If All_Diets.csv changed on disk, re-run cleaning + summary calc once.
+    Otherwise reuse existing cleaned data & results.
+    """
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError("All_Diets.csv not found in project root")
+
+    src_mtime = os.path.getmtime(DATA_PATH)
+    if CACHE["df"] is None or CACHE["source_mtime"] != src_mtime:
+        # file changed or first load → rebuild cache once
+        build_cache()
+        CACHE["source_mtime"] = src_mtime
+
 
 # ------------------------------
 # Flask & DB setup
@@ -33,7 +90,10 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
 # Simple local DB; in Azure you’ll point this to Azure SQL / Cosmos
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    "DATABASE_URL",  # set this in Azure
+    "sqlite:///users.db"  # fallback for local dev
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -41,8 +101,6 @@ db = SQLAlchemy(app)
 oauth = OAuth(app)
 
 # OAuth setup
-
-oauth = OAuth(app)
 
 app.config["GITHUB_CLIENT_ID"] = os.getenv("GITHUB_CLIENT_ID")
 app.config["GITHUB_CLIENT_SECRET"] = os.getenv("GITHUB_CLIENT_SECRET")
@@ -95,20 +153,6 @@ def login_required(view_func):
         return view_func(*args, **kwargs)
     return wrapped_view
 
-# ------------------------------
-# Dataset load (as you had)
-# ------------------------------
-DATA_PATH = "All_Diets.csv"
-if not os.path.exists(DATA_PATH):
-    raise FileNotFoundError("All_Diets.csv not found in project root")
-
-raw_df = pd.read_csv(DATA_PATH)
-
-# expected columns: Diet_type, Recipe_name, Cuisine_type, Protein(g), Carbs(g), Fat(g)
-for col in ["Protein(g)", "Carbs(g)", "Fat(g)"]:
-    if col in raw_df.columns:
-        raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
-raw_df[["Protein(g)", "Carbs(g)", "Fat(g)"]] = raw_df[["Protein(g)", "Carbs(g)", "Fat(g)"]].fillna(0)
 
 def fig_to_base64():
     """Return current Matplotlib figure as base64 string."""
@@ -204,6 +248,8 @@ def logout():
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def index():
+    ensure_cache()
+    df_all = CACHE["df"]
     action = request.form.get("action")
     selected_diet = request.form.get("dietType", "")          # from dropdown
     keyword = (request.form.get("keyword") or "").strip()     # keyword search
@@ -214,18 +260,22 @@ def index():
     total_pages = 1
 
     # base filtered dataframe (used by several actions)
-    df_filtered = filter_by_diet(raw_df, selected_diet)
+    df_filtered = filter_by_diet(df_all, selected_diet)
 
     if action == "insights":
-        # ----- build insights from real data -----
+        df_filtered = filter_by_diet(df_all, selected_diet)
+
+        # ----- 1) Bar chart: use precomputed averages -----
+        avg_macros = CACHE["avg_macros_by_diet"]
+
         if selected_diet:
-            grp = df_filtered.groupby("Diet_type")[["Protein(g)", "Carbs(g)", "Fat(g)"]].mean()
+            # just the selected diet’s row (still from precomputed table)
+            grp = avg_macros.loc[[selected_diet]]
         else:
-            grp = raw_df.groupby("Diet_type")[["Protein(g)", "Carbs(g)", "Fat(g)"]].mean()
+            grp = avg_macros
 
         grp = grp.sort_values("Protein(g)", ascending=False)
 
-        # 1) bar chart: average protein per diet
         plt.figure(figsize=(6, 4))
         sns.barplot(x=grp.index, y=grp["Protein(g)"])
         plt.xticks(rotation=25, ha="right")
@@ -233,20 +283,20 @@ def index():
         plt.ylabel("Protein (g)")
         charts["bar"] = fig_to_base64()
 
-        # 2) scatter: carbs vs fat for filtered records
+        # ----- 2) Scatter: filtered records (lightweight, not a heavy groupby) -----
         plt.figure(figsize=(5, 4))
         sns.scatterplot(
             x=df_filtered["Carbs(g)"],
             y=df_filtered["Fat(g)"],
             hue=df_filtered["Diet_type"],
-            legend=False
+            legend=False,
         )
         plt.title("Carbs vs Fat")
         plt.xlabel("Carbs (g)")
         plt.ylabel("Fat (g)")
         charts["scatter"] = fig_to_base64()
 
-        # 3) heatmap: correlations on filtered data
+        # ----- 3) Heatmap: correlations on filtered data -----
         if df_filtered.shape[0] > 1:
             plt.figure(figsize=(4, 3))
             corr = df_filtered[["Protein(g)", "Carbs(g)", "Fat(g)"]].corr()
@@ -254,8 +304,12 @@ def index():
             plt.title("Macro Correlations")
             charts["heatmap"] = fig_to_base64()
 
-        # 4) pie: distribution of recipes by diet
-        cnt = (df_filtered if selected_diet else raw_df)["Diet_type"].value_counts()
+        # ----- 4) Pie chart: use precomputed counts when no filter -----
+        if selected_diet:
+            cnt = df_filtered["Diet_type"].value_counts()
+        else:
+            cnt = CACHE["recipe_counts_by_diet"]
+
         plt.figure(figsize=(4, 4))
         plt.pie(cnt.values, labels=cnt.index, autopct="%1.1f%%", startangle=140)
         plt.title("Recipe Distribution by Diet")
@@ -317,7 +371,7 @@ def index():
             counts = df["Cluster"].value_counts()
             message = [f"{k.title()} dominant: {v} recipes" for k, v in counts.items()]
 
-    diet_options = sorted(raw_df["Diet_type"].dropna().unique().tolist())
+    diet_options = sorted(df_all["Diet_type"].dropna().unique().tolist())
     user_name = session.get("user_name")
 
     return render_template(

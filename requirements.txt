@@ -3,7 +3,8 @@ flask_sqlalchemy
 pandas
 matplotlib
 seaborn
-werkzeug
-Authlib
+authlib
 python-dotenv
+requests
+gunicorn
 
